@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 )
@@ -68,7 +67,9 @@ func (r *Response) Close() error {
 		return r.Error
 	}
 
-	io.Copy(ioutil.Discard, r)
+	if _, err := io.Copy(io.Discard, r); err != nil {
+		return err
+	}
 
 	return r.RawResponse.Body.Close()
 }
@@ -86,10 +87,15 @@ func (r *Response) DownloadToFile(fileName string) error {
 		return err
 	}
 
-	defer r.Close() // This is a noop if we use the internal ByteBuffer
-	defer fd.Close()
+	defer func() {
+		_ = r.Close() // This is a noop if we use the internal ByteBuffer
+	}()
 
-	if _, err := io.Copy(fd, r.getInternalReader()); err != nil && err != io.EOF {
+	defer func() {
+		_ = fd.Close()
+	}()
+
+	if _, err = io.Copy(fd, r.getInternalReader()); err != nil && err != io.EOF {
 		return err
 	}
 
@@ -120,7 +126,9 @@ func (r *Response) XML(userStruct interface{}, charsetReader XMLCharDecoder) err
 		xmlDecoder.CharsetReader = charsetReader
 	}
 
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	return xmlDecoder.Decode(&userStruct)
 }
@@ -134,7 +142,10 @@ func (r *Response) JSON(userStruct interface{}) error {
 	}
 
 	jsonDecoder := json.NewDecoder(r.getInternalReader())
-	defer r.Close()
+
+	defer func() {
+		_ = r.Close()
+	}()
 
 	return jsonDecoder.Decode(&userStruct)
 }
@@ -148,7 +159,9 @@ func (r *Response) populateResponseByteBuffer() {
 		return
 	}
 
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	// Is there any content?
 	if r.RawResponse.ContentLength == 0 {
@@ -162,7 +175,7 @@ func (r *Response) populateResponseByteBuffer() {
 
 	if _, err := io.Copy(r.internalByteBuffer, r); err != nil && err != io.EOF {
 		r.Error = err
-		r.RawResponse.Body.Close()
+		_ = r.RawResponse.Body.Close()
 	}
 
 }

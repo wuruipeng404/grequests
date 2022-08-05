@@ -304,8 +304,10 @@ func createMultiPartPostRequest(httpMethod, userURL string, ro *RequestOptions) 
 			}
 		}
 
-		var writer io.Writer
-		var err error
+		var (
+			err    error
+			writer io.Writer
+		)
 
 		if f.FileMime != "" {
 			if f.FileName == "" {
@@ -327,7 +329,7 @@ func createMultiPartPostRequest(httpMethod, userURL string, ro *RequestOptions) 
 			return nil, err
 		}
 
-		if err := f.FileContents.Close(); err != nil {
+		if err = f.FileContents.Close(); err != nil {
 			return nil, err
 		}
 
@@ -335,7 +337,7 @@ func createMultiPartPostRequest(httpMethod, userURL string, ro *RequestOptions) 
 
 	// Populate the other parts of the form (if there are any)
 	for key, value := range ro.Data {
-		multipartWriter.WriteField(key, value)
+		_ = multipartWriter.WriteField(key, value)
 	}
 
 	if err := multipartWriter.Close(); err != nil {
